@@ -8,7 +8,7 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL")
 
 # Configure CORS to allow requests from your frontend origin
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:8080"}})
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 
 
 from DB.classes import Employee, Role, Permission, Application, Employee_Role, Employee_Application, Role_Permission, Application_Role, Audit

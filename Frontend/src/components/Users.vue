@@ -3,25 +3,9 @@
       <v-col cols="12" sm="6" md="4">
         <v-text-field v-model="searchQuery" label="Search" clearable></v-text-field>
       </v-col>
-      <v-col cols="12" sm="6" md="4">
-        <v-select v-model="selectedRole" :items="roleOptions" label="Role" clearable item-text="text"></v-select>
-        <p>Selected Role: {{ getRoleName(selectedRole) }}</p>
-      </v-col>
-
-      <v-col cols="12" sm="6" md="4">
-        <v-select v-model="selectedApplication" :items="applicationOptions" label="Application" clearable item-text="text"></v-select>
-        <p>Selected Application: {{ getApplicationName(selectedApplication) }}</p>
-      </v-col>
     </v-row>
     
-    <v-data-table :headers="headers" :items="filteredUsers" >
-      <template v-slot:item.role="{ item }">
-        {{ getRoleName(item.roleId) }}
-      </template>
-      <template v-slot:item.application="{ item }">
-        {{ getApplicationName(item.applicationId) }}
-      </template>
-      
+    <v-data-table :headers="headers" :items="filteredUsers" >      
       <template v-slot:top>
         <v-toolbar flat>
           <v-toolbar-title>Users</v-toolbar-title>
@@ -32,7 +16,6 @@
               <v-btn color="primary" dark class="mb-2" v-bind="props">New User</v-btn>
             </template>
             <v-card>
-              <v-card-title><span class="text-h5">{{ formTitle }}</span></v-card-title>
               <v-card-text>
                 <v-container>
                   <v-row>
@@ -50,12 +33,6 @@
                     </v-col>
                     <v-col cols="12" sm="6" md="4">
                       <v-text-field v-model="editedItem.email" label="Email"></v-text-field>
-                    </v-col>
-                    <v-col cols="12" sm="6" md="4">
-                      <v-text-field v-model="editedItem.hireDate" label="Hire Date"></v-text-field>
-                    </v-col>
-                    <v-col cols="12" sm="6" md="4">
-                      <v-checkbox v-model="editedItem.isActive" label="Active"></v-checkbox>
                     </v-col>
                   </v-row>
                 </v-container>
@@ -82,58 +59,19 @@
       </template>
       
       <template v-slot:item.actions="{ item }">
-        <v-icon size="small" class="me-2" @click="editItem(item)">mdi-pencil</v-icon>
-        <v-icon size="small" @click="deleteItem(item)">mdi-delete</v-icon>
+        <v-icon size="small" class="me-2" @click="editItem(item)" style="background-color: red;">mdi-pencil</v-icon>
+        <v-icon size="small" @click="deleteItem(item)" style="background-color: red;">mdi-delete</v-icon>
       </template>
       
-      <template v-slot:no-data>
-        <v-btn color="primary" @click="initialize">Reset</v-btn>
-      </template>
     </v-data-table>
 </template>
   
 
 <script setup>
-import { ref, computed } from 'vue';
-import { useAppStore } from '@/store/app';
-
-const store = useAppStore();
-
+import { ref, onMounted } from 'vue';
 
 const searchQuery = ref('');
-const selectedRole = ref('');
-const selectedApplication = ref('');
-
-const roleOptions = computed(() => {
-  const options = store.roles.map((role) => ({ title: role.name, value: role.id }));
-  console.log('hello', typeof(options[0].text));
-  return options;
-});
-
-
-const applicationOptions = computed(() => {
-  console.log(store.applications.map((app) => ({ title: app.name, value: app.id })));
-  return store.applications.map((app) => ({ title: app.name, value: app.id }));
-});
-
-const filteredUsers = computed(() => {
-  let filtered = store.users.filter((user) =>
-    user.firstName.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-    user.lastName.toLowerCase().includes(searchQuery.value.toLowerCase()),
-    console.log(filteredUsers)
-  );
-
-  if (selectedRole.value) {
-    filtered = filtered.filter((user) => user.roleId === selectedRole.value);
-  }
-
-  if (selectedApplication.value) {
-    filtered = filtered.filter((user) => user.applicationId === selectedApplication.value);
-  }
-
-  return filtered;
-});
-
+const filteredUsers = ref([]);
 const dialog = ref(false);
 const dialogDelete = ref(false);
 const editedIndex = ref(-1);
@@ -144,10 +82,6 @@ const editedItem = ref({
   lastName: '',
   phone: '',
   email: '',
-  hireDate: '',
-  isActive: false,
-  roleId: null,
-  applicationId: null,
 });
 
 const defaultItem = {
@@ -156,13 +90,7 @@ const defaultItem = {
   lastName: '',
   phone: '',
   email: '',
-  hireDate: '',
-  isActive: false,
-  roleId: null,
-  applicationId: null,
 };
-
-const formTitle = computed(() => (editedIndex.value === -1 ? 'New Employee' : 'Edit Employee'));
 
 const headers = [
   { title: 'Id', key: 'id' },
@@ -170,29 +98,11 @@ const headers = [
   { title: 'Last Name', key: 'lastName' },
   { title: 'Phone', key: 'phone' },
   { title: 'Email', key: 'email' },
-  { title: 'Hire Date', key: 'hireDate' },
-  { title: 'Active', key: 'isActive' },
-  { title: 'Role', key: 'role' },
-  { title: 'Application', key: 'application' },
-  { title: 'Actions', key: 'actions', sortable: false },
 ];
 
-const getRoleName = (roleId) => {
-  const role = store.roles.find((r) => r.id === roleId);
-  return role ? role.name : '';
-};
-
-const getApplicationName = (applicationId) => {
-  const app = store.applications.find((a) => a.id === applicationId);
-  return app ? app.name : '';
-};
-
-const initialize = () => {
-  // No need to initialize users here; data is fetched from the store.
-};
 
 const editItem = (item) => {
-  editedIndex.value = store.users.indexOf(item);
+  editedIndex.value = filteredUsers.value.indexOf(item);
   editedItem.value = { ...item };
   dialog.value = true;
 };
@@ -205,21 +115,21 @@ const close = () => {
 
 const save = () => {
   if (editedIndex.value > -1) {
-    Object.assign(store.users[editedIndex.value], editedItem.value);
+    Object.assign(filteredUsers.value[editedIndex.value], editedItem.value);
   } else {
-    store.users.push(editedItem.value);
+    filteredUsers.value.push(editedItem.value);
   }
   close();
 };
 
 const deleteItem = (item) => {
-  editedIndex.value = store.users.indexOf(item);
+  editedIndex.value = filteredUsers.value.indexOf(item);
   editedItem.value = { ...item };
   dialogDelete.value = true;
 };
 
 const deleteItemConfirm = () => {
-  store.users.splice(editedIndex.value, 1);
+  filteredUsers.value.splice(editedIndex.value, 1);
   closeDelete();
 };
 
@@ -228,4 +138,29 @@ const closeDelete = () => {
   editedItem.value = { ...defaultItem };
   editedIndex.value = -1;
 };
+
+// Fetch user data from the database on component mount
+onMounted(async () => {
+  try {
+    const response = await fetch('http://localhost:5000/employees');
+    const data = await response.json();
+
+      const employeesArray = Object.keys(data).map(key => ({
+        id: key,
+        ...data[key]
+      }));
+
+
+    filteredUsers.value = employeesArray;
+    console.log('User data fetched:', employeesArray)
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+  }
+});
 </script>
+
+<style scoped>
+
+
+
+</style>
